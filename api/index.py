@@ -22,7 +22,6 @@ def extract_video_id(url_or_id):
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
-    # Eğer root'a geldiyse bilgi ver
     if path == "":
         return jsonify({
             "status": "ok",
@@ -42,17 +41,36 @@ def get_transcript():
         return jsonify({"success": False, "error": "Geçersiz ID"}), 400
     
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['tr', 'en'])
+        # GÜNCELLEME: Yeni API (v1.x) kullanımı
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['tr', 'en']) 
+        # NOT: Eğer v0.6 ise bu çalışır, v1.2 ise hata verir.
+        # İkisini de deneyelim:
+        
         return jsonify({
             "success": True,
             "video_id": video_id,
             "transcript": transcript_list
         })
+    except AttributeError:
+        # Yeni versiyon (v1.x) için fallback
+        try:
+            transcript = YouTubeTranscriptApi().fetch(video_id, languages=['tr', 'en'])
+            # FetchedTranscript objesini listeye çevir
+            if hasattr(transcript, 'to_raw_data'):
+                raw_data = transcript.to_raw_data()
+            else:
+                raw_data = list(transcript)
+                
+            return jsonify({
+                "success": True,
+                "video_id": video_id,
+                "transcript": raw_data
+            })
+        except Exception as e2:
+             return jsonify({"success": False, "error": str(e2)}), 500
+             
     except Exception as e:
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
-
-# Vercel için handler
-# Vercel, WSGI app instance'ını arar.
