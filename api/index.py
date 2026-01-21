@@ -40,35 +40,34 @@ def get_transcript():
     if not video_id:
         return jsonify({"success": False, "error": "Geçersiz ID"}), 400
     
+    # 1. Yöntem: Instance ile (Yeni Versiyon - v1.2+)
     try:
-        # GÜNCELLEME: Yeni API (v1.x) kullanımı
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['tr', 'en']) 
-        # NOT: Eğer v0.6 ise bu çalışır, v1.2 ise hata verir.
-        # İkisini de deneyelim:
+        transcript = YouTubeTranscriptApi().fetch(video_id, languages=['tr', 'en'])
         
+        # Obje mi liste mi kontrol et
+        if hasattr(transcript, 'to_raw_data'):
+            raw_data = transcript.to_raw_data()
+        else:
+            raw_data = list(transcript)
+            
         return jsonify({
             "success": True,
             "video_id": video_id,
-            "transcript": transcript_list
+            "transcript": raw_data
         })
-    except AttributeError:
-        # Yeni versiyon (v1.x) için fallback
+        
+    except (AttributeError, TypeError):
+        # 2. Yöntem: Statik metod ile (Eski Versiyon - v0.6)
         try:
-            transcript = YouTubeTranscriptApi().fetch(video_id, languages=['tr', 'en'])
-            # FetchedTranscript objesini listeye çevir
-            if hasattr(transcript, 'to_raw_data'):
-                raw_data = transcript.to_raw_data()
-            else:
-                raw_data = list(transcript)
-                
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id, languages=['tr', 'en'])
             return jsonify({
                 "success": True,
                 "video_id": video_id,
-                "transcript": raw_data
+                "transcript": transcript_list
             })
-        except Exception as e2:
-             return jsonify({"success": False, "error": str(e2)}), 500
-             
+        except Exception as e_old:
+            return jsonify({"success": False, "error": "Her iki yöntem de başarısız: " + str(e_old)}), 500
+
     except Exception as e:
         return jsonify({
             "success": False,
